@@ -38,5 +38,4 @@ func JSON(c *gin.Context, status string, message string, data ...interface{}) {
         }
     }
     c.JSON(http.StatusOK, Msg(status, message, data2))
-    return
 }

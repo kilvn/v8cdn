@@ -9,25 +9,34 @@ import (
     "github.com/aoaostar/v8cdn_panel/app/enum"
     "github.com/aoaostar/v8cdn_panel/app/form"
     "github.com/aoaostar/v8cdn_panel/app/util"
-    "github.com/aoaostar/v8cdn_panel/pkg"
+    "github.com/aoaostar/v8cdn_panel/config"
     "github.com/cloudflare/cloudflare-go"
     "github.com/sirupsen/logrus"
     "net/url"
 )
 
-// GetToken
-// https://api.cloudflare.com/host-gw.html
-func (svc *authService) GetToken(ctx context.Context, params *form.LoginParam) (token string, err error) {
+func (svc *authService) GetToken(ctx context.Context, params form.LoginParam) (token string, err error) {
     userInfo := &util.User{}
-    if params.UserApiKey == "" {
-        if pkg.Conf.Cloudflare.HostKey == "" {
+
+    if params.AuthType == "" {
+        params.AuthType = string(enum.EnumUserAuthTypeApiKey)
+    }
+
+    switch params.AuthType {
+    case string(enum.EnumUserAuthTypeApiKey):
+        if params.UserApiKey == "" {
+            params.UserApiKey = config.Env.Cloudflare.HostKey
+        }
+
+        fmt.Printf("params: %v", params)
+        userInfo, err = svc.authByKey(ctx, params)
+    case string(enum.EnumUserAuthTypePartner):
+        if config.Env.Cloudflare.HostKey == "" {
             err = errors.New("HostKey有误，无法使用密码登录")
             return
         }
 
         userInfo, err = svc.authByPartner(params)
-    } else {
-        userInfo, err = svc.authByKey(ctx, params)
     }
 
     if err != nil {
@@ -35,11 +44,10 @@ func (svc *authService) GetToken(ctx context.Context, params *form.LoginParam) (
     }
 
     token, err = util.GenerateToken(userInfo)
-
     return
 }
 
-func (svc *authService) authByKey(ctx context.Context, params *form.LoginParam) (userInfo *util.User, err error) {
+func (svc *authService) authByKey(ctx context.Context, params form.LoginParam) (userInfo *util.User, err error) {
     api, err := cloudflare.New(params.UserApiKey, params.Email)
     if err != nil {
         return
@@ -47,7 +55,7 @@ func (svc *authService) authByKey(ctx context.Context, params *form.LoginParam) 
 
     user, err := api.UserDetails(ctx)
     if err != nil {
-        err = errors.New("key无效")
+        err = errors.New("key无效" + err.Error())
         return
     }
 
@@ -70,14 +78,13 @@ func (svc *authService) authByKey(ctx context.Context, params *form.LoginParam) 
     userInfo.UserKey = user.APIKey
     userInfo.UserApiKey = params.UserApiKey
     userInfo.AuthType = string(enum.EnumUserAuthTypeApiKey)
-
     return
 }
 
-func (svc *authService) authByPartner(params *form.LoginParam) (userInfo *util.User, err error) {
+func (svc *authService) authByPartner(params form.LoginParam) (userInfo *util.User, err error) {
     v8cdnPost := util.V8cdnPostForm("https://api.cloudflare.com/host-gw.html", url.Values{
         "act":              {"user_auth"},
-        "host_key":         {pkg.Conf.Cloudflare.HostKey},
+        "host_key":         {config.Env.Cloudflare.HostKey},
         "cloudflare_email": {params.Email},
         "cloudflare_pass":  {params.Password},
     })
@@ -89,14 +96,14 @@ func (svc *authService) authByPartner(params *form.LoginParam) (userInfo *util.U
     data := &form.CloudflareResponse{}
     err = json.Unmarshal([]byte(v8cdnPost), &data)
     if err != nil {
-        err = errors.New("请求失败" + err.Error())
+        err = errors.New("请求失败: " + err.Error())
         return
     }
 
     if data.Result != "success" {
         message := "未知异常"
         if data.Msg != nil {
-            message = fmt.Sprintf("%v", data.Msg)
+            message = fmt.Sprintf(message+"%v", data.Msg)
         }
 
         err = errors.New(message)
@@ -108,6 +115,5 @@ func (svc *authService) authByPartner(params *form.LoginParam) (userInfo *util.U
     userInfo.UserKey = data.Response.UserKey
     userInfo.UserApiKey = data.Response.UserApiKey
     userInfo.AuthType = string(enum.EnumUserAuthTypePartner)
-
     return
 }

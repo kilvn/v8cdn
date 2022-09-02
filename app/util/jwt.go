@@ -2,7 +2,7 @@ package util
 
 import (
     "errors"
-    "github.com/aoaostar/v8cdn_panel/pkg"
+    "github.com/aoaostar/v8cdn_panel/config"
     "github.com/golang-jwt/jwt/v4"
     "time"
 )
@@ -18,7 +18,7 @@ type User struct {
 }
 
 // 指定加密密钥
-var jwtSecret = []byte(pkg.Conf.JwtSecret)
+var jwtSecret = []byte(config.Env.JwtSecret)
 
 // GenerateToken 根据用户的用户名和密码产生token
 func GenerateToken(user *User) (token string, err error) {

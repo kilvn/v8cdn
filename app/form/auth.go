@@ -5,6 +5,7 @@ type (
     LoginParam struct {
         Email      string `json:"email" binding:"required,email"`
         Password   string `json:"password" binding:"required_without=UserApiKey"`
+        AuthType   string `json:"auth_type"`
         UserApiKey string `json:"user_api_key" binding:"omitempty,min=1"`
     }
     UserInfo struct {

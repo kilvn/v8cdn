@@ -2,8 +2,9 @@ config.yaml
 *.bat
 v8cdn
 v8cdn.exe
-logs
+/logs/*
 .idea
 test.go
-vendor
+/vendor
 auth_test.go
+/dist
