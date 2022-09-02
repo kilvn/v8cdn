@@ -5,3 +5,5 @@ v8cdn.exe
 logs
 .idea
 test.go
+vendor
+auth_test.go
